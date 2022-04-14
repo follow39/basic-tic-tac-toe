@@ -1,10 +1,14 @@
-use std::cmp;
-use std::io::{self, Write};
+use std::{
+    cell::Cell,
+    io::{self, Write},
+};
 
 const BOARD_SIDE_LEN: usize = 3;
 const COUNT_IN_A_ROW_FOR_WIN: u32 = 3;
 const SYMBOL_PLAYER_1: char = 'x';
 const SYMBOL_PLAYER_2: char = 'o';
+const MESSAGE_WRONG_INPUT: &str = "Select a value from the suggested range.";
+const MESSAGE_CELL_NOT_EMPTY: &str = "This cell is occupied! Choose another one.";
 
 #[derive(Debug, Copy, Clone)]
 enum CellState {
@@ -23,24 +27,41 @@ fn main() {
     let mut step_counter = 1;
 
     loop {
-        let current_player_symbol = if step_counter % 2 == 1 {
-            SYMBOL_PLAYER_1
+        let current_player = if step_counter % 2 == 1 {
+            CellState::Player1
         } else {
-            SYMBOL_PLAYER_2
+            CellState::Player2
         };
         std::process::Command::new("clear").status().unwrap();
         println!("{}", render_board(&board));
-        println!("Player '{}' your turn!", current_player_symbol);
+        println!(
+            "Player '{}' your turn!",
+            convert_cell_state_to_char(&current_player)
+        );
 
-        while !do_move(&mut board, current_player_symbol, read_input_point()) {
-            println!("This cell is occupied! Choose another one.");
+        let p: Point = loop {
+            let p = read_input_point();
+            let input_result = point_is_suitable(&board, &p);
+            match input_result.0 {
+                true => break p,
+                false => println!("{}", input_result.1),
+            };
+        };
+
+        do_move(&mut board, current_player, &p);
+
+        if check_player_win(&board, COUNT_IN_A_ROW_FOR_WIN, &p) {
+            println!(
+                "Congratulations! Player '{}' won!",
+                convert_cell_state_to_char(&current_player)
+            );
+            break;
         }
-
+        if step_counter == 9 {
+            println!("Draw!");
+            break;
+        }
         step_counter += 1;
-
-        if check_player_win(&board, current_player_symbol) {
-            println!("Congratulations! Player '{}' won!", current_player_symbol);
-        }
     }
 }
 
@@ -53,49 +74,57 @@ macro_rules! read {
     };
 }
 
+fn convert_cell_state_to_char(state: &CellState) -> char {
+    match state {
+        CellState::Empty => ' ',
+        CellState::Player1 => SYMBOL_PLAYER_1,
+        CellState::Player2 => SYMBOL_PLAYER_2,
+    }
+}
+
 fn do_move(
     board: &mut [[CellState; BOARD_SIDE_LEN]; BOARD_SIDE_LEN],
-    player_symbol: char,
-    p: Point,
-) -> bool {
-    match board[p.y][p.x] {
-        CellState::Empty => {
-            board[p.y][p.x] = if player_symbol == SYMBOL_PLAYER_1 {
-                CellState::Player1
-            } else {
-                CellState::Player2
-            };
-        }
-        _ => return false,
+    player: CellState,
+    p: &Point,
+) {
+    board[p.y][p.x] = player;
+}
+
+fn point_is_suitable(
+    board: &[[CellState; BOARD_SIDE_LEN]; BOARD_SIDE_LEN],
+    p: &Point,
+) -> (bool, String) {
+    if p.x >= BOARD_SIDE_LEN || p.y >= BOARD_SIDE_LEN {
+        return (false, String::from(MESSAGE_WRONG_INPUT));
     }
-    true
+    match board[p.y][p.x] {
+        CellState::Empty => (true, String::new()),
+        _ => (false, String::from(MESSAGE_CELL_NOT_EMPTY)),
+    }
 }
 
 fn read_input_point() -> Point {
-    loop {
-        println!("Choose you cell({}-{}):", 1, BOARD_SIDE_LEN);
-        print!("x - ");
-        io::stdout().flush().unwrap();
-        read!(x as usize);
-        print!("y - ");
-        io::stdout().flush().unwrap();
-        read!(y as usize);
-        println!();
-        if x > 0 && x <= BOARD_SIDE_LEN && y > 0 && y <= BOARD_SIDE_LEN {
-            return Point {
-                x: x - 1,
-                y: (BOARD_SIDE_LEN - y),
-            };
-        } else {
-            print!("Select a value from the suggested range.");
-        }
+    println!("Choose you cell({}-{}):", 0, BOARD_SIDE_LEN - 1);
+    print!("x - ");
+    io::stdout().flush().unwrap();
+    read!(x as usize);
+    print!("y - ");
+    io::stdout().flush().unwrap();
+    read!(y as usize);
+    println!();
+    Point {
+        x,
+        y: (BOARD_SIDE_LEN - y - 1),
     }
 }
 
 fn check_player_win(
     board: &[[CellState; BOARD_SIDE_LEN]; BOARD_SIDE_LEN],
-    player_symbol: char,
+    count_for_win: u32,
+    last_point: &Point,
 ) -> bool {
+    let mut cnt: u32;
+    
     false
 }
 
@@ -128,17 +157,10 @@ fn render_board(board: &[[CellState; BOARD_SIDE_LEN]; BOARD_SIDE_LEN]) -> String
         if i > 0 {
             println!("{}", render_row_line('━', '╋', '┣', '┫', BOARD_SIDE_LEN));
         }
-        print!("{}", (BOARD_SIDE_LEN - i));
+        print!("{}", (BOARD_SIDE_LEN - i - 1));
         for item in row.into_iter() {
             print!("┃");
-            print!(
-                "{: ^3}",
-                match item {
-                    CellState::Empty => ' ',
-                    CellState::Player1 => SYMBOL_PLAYER_1,
-                    CellState::Player2 => SYMBOL_PLAYER_2,
-                }
-            );
+            print!("{: ^3}", convert_cell_state_to_char(&item));
         }
         println!("┃");
     }
@@ -147,7 +169,7 @@ fn render_board(board: &[[CellState; BOARD_SIDE_LEN]; BOARD_SIDE_LEN]) -> String
     }
     print!("  ");
     for (i, _) in board.into_iter().enumerate() {
-        print!("{: ^3} ", i + 1)
+        print!("{: ^3} ", i)
     }
     String::new()
 }
