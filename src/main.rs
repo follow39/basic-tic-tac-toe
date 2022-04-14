@@ -1,7 +1,4 @@
-use std::{
-    cell::Cell,
-    io::{self, Write},
-};
+use std::io::{self, Write};
 
 const BOARD_SIDE_LEN: usize = 3;
 const COUNT_IN_A_ROW_FOR_WIN: u32 = 3;
@@ -124,7 +121,7 @@ fn check_player_win(
     last_point: &Point,
 ) -> bool {
     let mut cnt: u32;
-    
+
     false
 }
 
