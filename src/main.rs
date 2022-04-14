@@ -1,13 +1,8 @@
 use std::io::{self, Write};
 
 const BOARD_SIDE_LEN: usize = 3;
-const COUNT_IN_A_ROW_FOR_WIN: u32 = 3;
-const SYMBOL_PLAYER_1: char = 'x';
-const SYMBOL_PLAYER_2: char = 'o';
-const MESSAGE_WRONG_INPUT: &str = "Select a value from the suggested range.";
-const MESSAGE_CELL_NOT_EMPTY: &str = "This cell is occupied! Choose another one.";
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 enum CellState {
     Empty,
     Player1,
@@ -22,6 +17,7 @@ struct Point {
 fn main() {
     let mut board = [[CellState::Empty; BOARD_SIDE_LEN]; BOARD_SIDE_LEN];
     let mut step_counter = 1;
+    const COUNT_IN_A_ROW_FOR_WIN: usize = 3;
 
     loop {
         let current_player = if step_counter % 2 == 1 {
@@ -48,6 +44,8 @@ fn main() {
         do_move(&mut board, current_player, &p);
 
         if check_player_win(&board, COUNT_IN_A_ROW_FOR_WIN, &p) {
+            std::process::Command::new("clear").status().unwrap();
+            println!("{}", render_board(&board));
             println!(
                 "Congratulations! Player '{}' won!",
                 convert_cell_state_to_char(&current_player)
@@ -55,6 +53,8 @@ fn main() {
             break;
         }
         if step_counter == 9 {
+            std::process::Command::new("clear").status().unwrap();
+            println!("{}", render_board(&board));
             println!("Draw!");
             break;
         }
@@ -72,6 +72,8 @@ macro_rules! read {
 }
 
 fn convert_cell_state_to_char(state: &CellState) -> char {
+    const SYMBOL_PLAYER_1: char = 'x';
+    const SYMBOL_PLAYER_2: char = 'o';
     match state {
         CellState::Empty => ' ',
         CellState::Player1 => SYMBOL_PLAYER_1,
@@ -91,6 +93,8 @@ fn point_is_suitable(
     board: &[[CellState; BOARD_SIDE_LEN]; BOARD_SIDE_LEN],
     p: &Point,
 ) -> (bool, String) {
+    const MESSAGE_WRONG_INPUT: &str = "Select a value from the suggested range.";
+    const MESSAGE_CELL_NOT_EMPTY: &str = "This cell is occupied! Choose another one.";
     if p.x >= BOARD_SIDE_LEN || p.y >= BOARD_SIDE_LEN {
         return (false, String::from(MESSAGE_WRONG_INPUT));
     }
@@ -117,12 +121,100 @@ fn read_input_point() -> Point {
 
 fn check_player_win(
     board: &[[CellState; BOARD_SIDE_LEN]; BOARD_SIDE_LEN],
-    count_for_win: u32,
+    count_for_win: usize,
     last_point: &Point,
 ) -> bool {
-    let mut cnt: u32;
+    let mut cnt = 1usize;
+    for i in 1..count_for_win {
+        if last_point.x >= i
+            && board[last_point.y][last_point.x - i] == board[last_point.y][last_point.x]
+        {
+            cnt += 1;
+        } else {
+            break;
+        }
+    }
+    for i in 1..count_for_win {
+        if last_point.x + i < board.len()
+            && board[last_point.y][last_point.x + i] == board[last_point.y][last_point.x]
+        {
+            cnt += 1;
+        } else {
+            break;
+        }
+    }
+    let result_hor = cnt >= count_for_win;
 
-    false
+    cnt = 1;
+    for i in 1..count_for_win {
+        if last_point.y >= i
+            && board[last_point.y - i][last_point.x] == board[last_point.y][last_point.x]
+        {
+            cnt += 1;
+        } else {
+            break;
+        }
+    }
+    for i in 1..count_for_win {
+        if last_point.y + i < board.len()
+            && board[last_point.y + i][last_point.x] == board[last_point.y][last_point.x]
+        {
+            cnt += 1;
+        } else {
+            break;
+        }
+    }
+    let result_ver = cnt >= count_for_win;
+
+    cnt = 1;
+    for i in 1..count_for_win {
+        if last_point.x >= i
+            && last_point.y >= i
+            && board[last_point.y - i][last_point.x - i] == board[last_point.y][last_point.x]
+        {
+            cnt += 1;
+        } else {
+            break;
+        }
+    }
+    for i in 1..count_for_win {
+        if last_point.x + i < board.len()
+            && last_point.y + i < board.len()
+            && board[last_point.y + i][last_point.x + i] == board[last_point.y][last_point.x]
+        {
+            cnt += 1;
+        } else {
+            break;
+        }
+    }
+    let result_diag_p = cnt >= count_for_win;
+    cnt = 1;
+
+    cnt = 1;
+    for i in 1..count_for_win {
+        if last_point.x >= i
+            && last_point.y + i < board.len()
+            && board[last_point.y + i][last_point.x - i] == board[last_point.y][last_point.x]
+        {
+            cnt += 1;
+        } else {
+            break;
+        }
+    }
+    for i in 1..count_for_win {
+        if last_point.x + i < board.len()
+            && last_point.y >= i
+            && board[last_point.y - i][last_point.x + i] == board[last_point.y][last_point.x]
+        {
+            cnt += 1;
+        } else {
+            break;
+        }
+    }
+    let result_diag_n = cnt >= count_for_win;
+    cnt = 1;
+
+    result_hor || result_ver || result_diag_p || result_diag_n
 }
 
 fn render_row_line(
